@@ -32,7 +32,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
  *  USA.
  */
-
+//#define  LIBVNCSERVER_HAVE_LIBPTHREAD 1
 #if(defined __cplusplus)
 extern "C"
 {
@@ -56,6 +56,7 @@ extern "C"
 #undef SOCKET
 typedef UINT32 in_addr_t;
 #include <winsock2.h>
+#include <windows.h>
 #ifdef LIBVNCSERVER_HAVE_WS2TCPIP_H
 #undef socklen_t
 #include <ws2tcpip.h>
@@ -63,6 +64,7 @@ typedef UINT32 in_addr_t;
 #endif
 
 #ifdef LIBVNCSERVER_HAVE_LIBPTHREAD
+#ifndef WIN32
 #include <pthread.h>
 #if 0 /* debugging */
 #define LOCK(mutex) (rfbLog("%s:%d LOCK(%s,0x%x)\n",__FILE__,__LINE__,#mutex,&(mutex)), pthread_mutex_lock(&(mutex)))
@@ -90,8 +92,27 @@ typedef UINT32 in_addr_t;
 #define INIT_COND(cond) pthread_cond_init(&(cond),NULL)
 #define TINI_COND(cond) pthread_cond_destroy(&(cond))
 #define IF_PTHREADS(x) x
+#define LIB_THREAD_TYPE		pthread_t
 #endif
 #else
+#define LOCK(mutex)		EnterCriticalSection (&(mutex))
+#define UNLOCK(mutex)		LeaveCriticalSection (&(mutex))
+#define MUTEX(mutex)		CRITICAL_SECTION (mutex)
+#define INIT_MUTEX(mutex)	InitializeCriticalSection (&(mutex))
+#define TINI_MUTEX(mutex)	DeleteCriticalSection(&(mutex))
+
+#define TSIGNAL(cond)		WakeConditionVariable (&(cond))
+#define WAIT(cond,mutex)	SleepConditionVariableCS(&(cond),&(mutex), INFINITE)
+#define COND(cond)		CONDITION_VARIABLE (conn)
+#define INIT_COND(cond)		InitializeConditionVariable(&(cond))
+#define TINI_COND(cond)
+#define IF_PTHREADS(x)		x
+#define LIB_THREAD_TYPE		HANDLE
+#endif
+
+#else
+
+
 #define LOCK(mutex)
 #define UNLOCK(mutex)
 #define MUTEX(mutex)
@@ -103,6 +124,7 @@ typedef UINT32 in_addr_t;
 #define INIT_COND(cond)
 #define TINI_COND(cond)
 #define IF_PTHREADS(x)
+#define LIB_THREAD_TYPE
 #endif
 
 /* end of stuff for autoconf */
@@ -467,7 +489,7 @@ typedef struct _rfbClientRec {
     int protocolMinorVersion;
 
 #ifdef LIBVNCSERVER_HAVE_LIBPTHREAD
-    pthread_t client_thread;
+	LIB_THREAD_TYPE client_thread;
 #endif
 
     /* Note that the RFB_INITIALISATION_SHARED state is provided to support
@@ -751,11 +773,11 @@ extern int rfbReadExactTimeout(rfbClientPtr cl, char *buf, int len,int timeout);
 extern int rfbPeekExactTimeout(rfbClientPtr cl, char *buf, int len,int timeout);
 extern int rfbWriteExact(rfbClientPtr cl, const char *buf, int len);
 extern int rfbCheckFds(rfbScreenInfoPtr rfbScreen,long usec);
-extern int rfbConnect(rfbScreenInfoPtr rfbScreen, char* host, int port);
-extern int rfbConnectToTcpAddr(char* host, int port);
-extern int rfbListenOnTCPPort(int port, in_addr_t iface);
-extern int rfbListenOnTCP6Port(int port, const char* iface);
-extern int rfbListenOnUDPPort(int port, in_addr_t iface);
+extern SOCKET rfbConnect(rfbScreenInfoPtr rfbScreen, char* host, int port);
+extern SOCKET rfbConnectToTcpAddr(char* host, int port);
+extern SOCKET rfbListenOnTCPPort(int port, in_addr_t iface);
+extern SOCKET rfbListenOnTCP6Port(int port, const char* iface);
+extern SOCKET rfbListenOnUDPPort(int port, in_addr_t iface);
 extern int rfbStringToAddr(char* string,in_addr_t* addr);
 extern rfbBool rfbSetNonBlocking(int sock);
 
@@ -782,8 +804,8 @@ extern void rfbReleaseClientIterator(rfbClientIteratorPtr iterator);
 extern void rfbIncrClientRef(rfbClientPtr cl);
 extern void rfbDecrClientRef(rfbClientPtr cl);
 
-extern void rfbNewClientConnection(rfbScreenInfoPtr rfbScreen,int sock);
-extern rfbClientPtr rfbNewClient(rfbScreenInfoPtr rfbScreen,int sock);
+extern void rfbNewClientConnection(rfbScreenInfoPtr rfbScreen, SOCKET sock);
+extern rfbClientPtr rfbNewClient(rfbScreenInfoPtr rfbScreen, SOCKET sock);
 extern rfbClientPtr rfbNewUDPClient(rfbScreenInfoPtr rfbScreen);
 extern rfbClientPtr rfbReverseConnection(rfbScreenInfoPtr rfbScreen,char *host, int port);
 extern void rfbClientConnectionGone(rfbClientPtr cl);

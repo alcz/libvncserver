@@ -233,7 +233,7 @@ typedef struct _rfbClient {
 
 	/* rfbproto.c */
 
-	int sock;
+	SOCKET sock;
 	rfbBool canUseCoRRE;
 	rfbBool canUseHextile;
 	char *desktopName;
@@ -368,10 +368,12 @@ typedef struct _rfbClient {
 
         /** hook to handle xvp server messages */
 	HandleXvpMsgProc           HandleXvpMsg;
-
+#ifdef WIN32
+	SOCKET listenSock;
+#else
 	/* listen.c */
         int listenSock;
-
+#endif
 	FinishedFrameBufferUpdateProc FinishedFrameBufferUpdate;
 
 	char *listenAddress;
@@ -599,17 +601,17 @@ extern rfbBool errorMessageOnReadFailure;
 extern rfbBool ReadFromRFBServer(rfbClient* client, char *out, unsigned int n);
 extern rfbBool WriteToRFBServer(rfbClient* client, char *buf, int n);
 extern int FindFreeTcpPort(void);
-extern int ListenAtTcpPort(int port);
-extern int ListenAtTcpPortAndAddress(int port, const char *address);
-extern int ConnectClientToTcpAddr(unsigned int host, int port);
-extern int ConnectClientToTcpAddr6(const char *hostname, int port);
-extern int ConnectClientToUnixSock(const char *sockFile);
-extern int AcceptTcpConnection(int listenSock);
-extern rfbBool SetNonBlocking(int sock);
-extern rfbBool SetDSCP(int sock, int dscp);
+extern SOCKET ListenAtTcpPort(int port);
+extern SOCKET ListenAtTcpPortAndAddress(int port, const char *address);
+extern SOCKET ConnectClientToTcpAddr(unsigned int host, int port);
+extern SOCKET ConnectClientToTcpAddr6(const char *hostname, int port);
+extern SOCKET ConnectClientToUnixSock(const char *sockFile);
+extern SOCKET AcceptTcpConnection(int listenSock);
+extern rfbBool SetNonBlocking(SOCKET sock);
+extern rfbBool SetDSCP(SOCKET sock, int dscp);
 
 extern rfbBool StringToIPAddr(const char *str, unsigned int *addr);
-extern rfbBool SameMachine(int sock);
+extern rfbBool SameMachine(SOCKET sock);
 /**
  * Waits for an RFB message to arrive from the server. Before handling a message
  * with HandleRFBServerMessage(), you must wait for your client to receive one.

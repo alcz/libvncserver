@@ -103,6 +103,9 @@ static const tjscalingfactor sf[NUMSF]={
 	{1, 4},
 	{1, 8}
 };
+#ifdef WIN32
+#define snprintf sprintf_s
+#endif
 
 #define _throw(m) {snprintf(errStr, JMSG_LENGTH_MAX, "%s", m);  \
 	retval=-1;  goto bailout;}

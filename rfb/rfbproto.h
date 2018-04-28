@@ -63,10 +63,12 @@
 #include <stdint.h>
 
 #if defined(WIN32) && !defined(__MINGW32__)
-#define LIBVNCSERVER_WORDS_BIGENDIAN
+//#define LIBVNCSERVER_WORDS_BIGENDIAN
 typedef int8_t rfbBool;
+#include <rfb/rfbconfig.h>
 #include <sys/timeb.h>
 #include <winsock2.h>
+
 #else
 #include <rfb/rfbconfig.h>
 #endif
