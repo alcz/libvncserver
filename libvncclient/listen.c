@@ -207,8 +207,8 @@ listenForIncomingConnectionsNoFork(rfbClient* client, int timeout)
       else if (FD_ISSET(client->listen6Sock, &fds))
 	client->sock = AcceptTcpConnection(client->listen6Sock);
 
-      if (client->sock < 0)
-	return -1;
+	  if (client->sock == INVALID_SOCKET)
+		  return -1;
       if (!SetNonBlocking(client->sock))
 	return -1;
 
