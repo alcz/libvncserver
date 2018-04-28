@@ -893,18 +893,23 @@ rfbListenOnTCPPort(int port,
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = iface;
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
 	return INVALID_SOCKET;
     }
+
+#ifndef WIN32
+    /* beware, SO_REUSEADDR is different on Windows, reuses _port_ of other applications */
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
 		   (char *)&one, sizeof(one)) < 0) {
 	closesocket(sock);
 	return INVALID_SOCKET;
     }
+#endif
     if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 	closesocket(sock);
 	return INVALID_SOCKET;
     }
+
     if (listen(sock, 32) < 0) {
 	closesocket(sock);
 	return INVALID_SOCKET;

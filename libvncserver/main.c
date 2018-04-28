@@ -269,7 +269,7 @@ void rfbLogPerror(const char *str)
     FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
                    NULL, errno, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                    (LPWSTR)&s, 0, NULL);
-    rfbErr("%s: %S\n", str, s);
+    rfbErr("%s: %ld %S\n", str, errno, s);
     LocalFree(s);
 #else
     rfbErr("%s: %s\n", str, strerror(errno));
@@ -534,7 +534,7 @@ clientInput(void *data)
 	
 #ifdef WIN32
 	typedef unsigned(__stdcall *start_address_t)(void *);
-	output_thread = (HANDLE)_beginthreadex(0, 0, (start_address_t)output_thread, cl, 0, 0);
+	output_thread = (HANDLE)_beginthreadex(0, 0, (start_address_t)clientOutput, cl, 0, 0);
 #else
     pthread_create(&output_thread, NULL, clientOutput, (void *)cl);
 #endif
@@ -616,12 +616,18 @@ listenerRun(void *data)
     while (1) {
         client_fd = -1;
         FD_ZERO(&listen_fds);
-	if(screen->listenSock >= 0) 
+
+	if(screen->listenSock != INVALID_SOCKET)
 	  FD_SET(screen->listenSock, &listen_fds);
-	if(screen->listen6Sock >= 0) 
+	if(screen->listen6Sock != INVALID_SOCKET)
 	  FD_SET(screen->listen6Sock, &listen_fds);
 
+#ifdef WIN32
+        if (select(0, &listen_fds, NULL, NULL, NULL) == -1) {
+	    errno=WSAGetLastError();
+#else
         if (select(screen->maxFd+1, &listen_fds, NULL, NULL, NULL) == -1) {
+#endif
             rfbLogPerror("listenerRun: error in select");
             return NULL;
         }
@@ -1098,12 +1104,15 @@ void rfbInitServer(rfbScreenInfoPtr screen)
     WSAinitted=TRUE;
   }
 #endif
-  rfbInitSockets(screen);
-  rfbHttpInitSockets(screen);
+  if(screen)
+  {
+    rfbInitSockets(screen);
+    rfbHttpInitSockets(screen);
 #ifndef WIN32
-  if(screen->ignoreSIGPIPE)
-    signal(SIGPIPE,SIG_IGN);
+    if(screen->ignoreSIGPIPE)
+      signal(SIGPIPE,SIG_IGN);
 #endif
+  }
 }
 
 void rfbShutdownServer(rfbScreenInfoPtr screen,rfbBool disconnectClients) {
@@ -1234,7 +1243,7 @@ void rfbRunEventLoop(rfbScreenInfoPtr screen, long usec, rfbBool runInBackground
        screen->backgroundLoop = TRUE;
 #ifdef WIN32
 	   typedef unsigned(__stdcall *start_address_t)(void *);
-	   listener_thread = (HANDLE)_beginthreadex(0, 0, (start_address_t)listenerRun, screen, 0, 0);
+	   listener_thread = (HANDLE)_beginthreadex(0, 0, (start_address_t)listenerRun, (void *)screen, 0, 0);
 #else
        pthread_create(&listener_thread, NULL, listenerRun, screen);
 #endif
