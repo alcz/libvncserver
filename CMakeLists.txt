@@ -37,6 +37,7 @@ option(WITH_ZLIB "Search for the zlib compression library to support additional 
 option(WITH_JPEG "Search for the libjpeg compression library to support additional encodings" ON)
 option(WITH_PNG "Search for the PNG compression library to support additional encodings" ON)
 option(WITH_SDL "Search for the Simple Direct Media Layer library to build an example SDL vnc client" ON)
+option(WITH_X11 "Search for X11 to build the example SDL vnc client with clipboard support" ON)
 option(WITH_THREADS "Search for a threading library to build with multithreading support" ON)
 option(WITH_GNUTLS "Search for the GnuTLS secure communications library to support encryption" ON)
 option(WITH_OPENSSL "Search for the OpenSSL cryptography library to support encryption" ON)
@@ -47,6 +48,7 @@ option(WITH_TIGHTVNC_FILETRANSFER "Enable filetransfer if there is pthreads supp
 option(WITH_24BPP "Allow 24 bpp" ON)
 option(WITH_IPv6 "Enable IPv6 Support" ON)
 option(WITH_WEBSOCKETS "Build with websockets support" ON)
+option(WITH_SASL "Build with SASL support" ON)
 
 
 
@@ -103,6 +105,11 @@ if(WITH_SDL)
 endif(WITH_SDL)
 
 
+if(WITH_X11)
+  find_package(X11)
+endif(WITH_X11)
+
+
 if(WITH_THREADS)
   find_package(Threads)
 endif(WITH_THREADS)
@@ -129,7 +136,7 @@ if(WITH_GCRYPT)
 endif(WITH_GCRYPT)
 
 if(WITH_FFMPEG)
-  find_package(FFMPEG)
+  find_package(FFMPEG 3.1.0)
 endif(WITH_FFMPEG)
 
 
@@ -264,6 +271,18 @@ endif(NOT HAVE_LIBVNCSERVER_IN_ADDR_T)
 
 TEST_BIG_ENDIAN(LIBVNCSERVER_WORDS_BIGENDIAN)
 
+if(WITH_SASL)
+  find_path(SASL2_INCLUDE_DIR sasl/sasl.h)
+  find_library(LIBSASL2_LIBRARIES sasl2 libsasl.lib)
+endif(WITH_SASL)
+
+if(WITH_SASL AND LIBSASL2_LIBRARIES AND SASL2_INCLUDE_DIR)
+  message(STATUS "Building with SASL: ${LIBSASL2_LIBRARIES} and ${SASL2_INCLUDE_DIR}")
+  set(LIBVNCSERVER_HAVE_SASL 1)
+  set(ADDITIONAL_LIBS ${ADDITIONAL_LIBS} ${LIBSASL2_LIBRARIES})
+  include_directories(${SASL2_INCLUDE_DIR})
+endif(WITH_SASL AND LIBSASL2_LIBRARIES AND SASL2_INCLUDE_DIR)
+
 # TODO:
 # LIBVNCSERVER_ENOENT_WORKAROUND
 # inline
@@ -304,6 +323,13 @@ set(LIBVNCCLIENT_SOURCES
     ${COMMON_DIR}/minilzo.c
 )
 
+if(JPEG_FOUND)
+  set(LIBVNCCLIENT_SOURCES
+    ${LIBVNCCLIENT_SOURCES}
+    ${COMMON_DIR}/turbojpeg.c
+  )
+endif()
+
 if(GNUTLS_FOUND)
   set(LIBVNCCLIENT_SOURCES
     ${LIBVNCCLIENT_SOURCES}
@@ -319,6 +345,13 @@ else()
   set(LIBVNCCLIENT_SOURCES
     ${LIBVNCCLIENT_SOURCES}
     ${LIBVNCCLIENT_DIR}/tls_none.c
+  )
+endif()
+
+if(LIBVNCSERVER_HAVE_SASL)
+  set(LIBVNCCLIENT_SOURCES
+    ${LIBVNCCLIENT_SOURCES}
+    ${LIBVNCCLIENT_DIR}/sasl.c
   )
 endif()
 
@@ -476,7 +509,7 @@ foreach(e ${LIBVNCCLIENT_EXAMPLES})
   add_executable(client_examples_${e} ${LIBVNCCLIEXAMPLE_DIR}/${e}.c ${LIBVNCCLIEXAMPLE_DIR}/${${e}_EXTRA_SOURCES} )
   set_target_properties(client_examples_${e} PROPERTIES OUTPUT_NAME ${e})
   set_target_properties(client_examples_${e} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_examples)
-  target_link_libraries(client_examples_${e} vncclient ${CMAKE_THREAD_LIBS_INIT} ${SDL_LIBRARY} ${FFMPEG_LIBRARIES})
+  target_link_libraries(client_examples_${e} vncclient ${CMAKE_THREAD_LIBS_INIT} ${SDL_LIBRARY} ${X11_LIBRARIES} ${FFMPEG_LIBRARIES})
 endforeach(e ${LIBVNCCLIENT_EXAMPLES})
 
 
